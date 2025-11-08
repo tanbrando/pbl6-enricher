@@ -1,0 +1,80 @@
+{
+  "attack-lfi": {
+    "name": "Local File Inclusion",
+    "category": "File Inclusion",
+    "severity": "High",
+    "cvss": 7.5,
+    "mitre_attack": ["T1005", "T1190"],
+    "owasp": ["A01:2021", "A03:2021"],
+    "description": "Attacker attempting to read sensitive files like .env, passwd, config files",
+    "common_targets": ["/.env", "/etc/passwd", "/wp-config.php", "/../../../"],
+    "remediation": [
+      "Validate and sanitize all file path inputs",
+      "Use whitelists for allowed file paths",
+      "Implement proper access controls",
+      "Disable directory listing"
+    ]
+  },
+  "attack-sqli": {
+    "name": "SQL Injection",
+    "category": "Injection",
+    "severity": "Critical",
+    "cvss": 9.8,
+    "mitre_attack": ["T1190"],
+    "owasp": ["A03:2021"],
+    "description": "Attempt to inject malicious SQL queries",
+    "common_patterns": ["' OR '1'='1", "UNION SELECT", "'; DROP TABLE"],
+    "remediation": [
+      "Use parameterized queries/prepared statements",
+      "Input validation and sanitization",
+      "Principle of least privilege for DB accounts",
+      "Enable query logging and monitoring"
+    ]
+  },
+  "attack-xss": {
+    "name": "Cross-Site Scripting",
+    "category": "Injection",
+    "severity": "High",
+    "cvss": 6.1,
+    "mitre_attack": ["T1059"],
+    "owasp": ["A03:2021"],
+    "description": "Injection of malicious scripts into web pages",
+    "common_patterns": ["<script>", "onerror=", "javascript:", "eval("],
+    "remediation": [
+      "Output encoding/escaping",
+      "Content Security Policy headers",
+      "HTTPOnly and Secure cookie flags",
+      "Input validation"
+    ]
+  },
+  "attack-rce": {
+    "name": "Remote Code Execution",
+    "category": "Execution",
+    "severity": "Critical",
+    "cvss": 10.0,
+    "mitre_attack": ["T1059"],
+    "owasp": ["A03:2021"],
+    "description": "Attempt to execute arbitrary commands on server",
+    "common_patterns": [";system(", "exec(", "|whoami", "& ping"],
+    "remediation": [
+      "Disable dangerous functions",
+      "Input validation and sanitization",
+      "Principle of least privilege",
+      "Application sandboxing"
+    ]
+  },
+  "attack-protocol": {
+    "name": "HTTP Protocol Violation",
+    "category": "Protocol",
+    "severity": "Medium",
+    "cvss": 5.3,
+    "mitre_attack": ["T1071"],
+    "owasp": ["A04:2021"],
+    "description": "Malformed or invalid HTTP requests",
+    "remediation": [
+      "Strict protocol validation",
+      "Reject malformed requests",
+      "Rate limiting"
+    ]
+  }
+}

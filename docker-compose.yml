@@ -1,0 +1,98 @@
+# ============================================================
+# Log Parser API - Standalone (Kết nối vào Loki/Grafana hiện có)
+# Author: tanbrando
+# Date: 2025-01-08 03:08:52 UTC
+# ============================================================
+
+version: '3.8'
+
+networks:
+  # Kết nối vào network HIỆN CÓ (không tạo mới)
+  monitoring:
+    external: true
+    name: monitoring_default  # ← Có thể cần đổi tên này
+
+volumes:
+  log-parser-logs:
+    driver: local
+  geoip-data:
+    driver: local
+
+services:
+  log-parser:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    
+    image: tanbrando/log-parser:1.0.0
+    container_name: log-parser
+    restart: unless-stopped
+    
+    ports:
+      - "5000:5000"
+    
+    environment:
+      # Kết nối đến Loki HIỆN CÓ
+      - LOKI_URL=http://loki:3100
+      - LOKI_TIMEOUT=30
+      
+      # Flask
+      - FLASK_ENV=production
+      - FLASK_DEBUG=false
+      - FLASK_HOST=0.0.0.0
+      - FLASK_PORT=5000
+      
+      # Logging
+      - LOG_LEVEL=INFO
+      - LOG_FORMAT=json
+      - LOG_FILE=/app/logs/app.log
+      
+      # Azure OpenAI
+      - AZURE_OPENAI_ENABLED=${AZURE_OPENAI_ENABLED:-false}
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
+      - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2024-02-01}
+      - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt4-turbo}
+      
+      # AI Settings
+      - AI_TEMPERATURE=${AI_TEMPERATURE:-0.3}
+      - AI_MAX_TOKENS=${AI_MAX_TOKENS:-2000}
+      - AI_TIMEOUT=${AI_TIMEOUT:-60}
+      
+      # Threat Intel
+      - THREAT_INTEL_ENABLED=${THREAT_INTEL_ENABLED:-false}
+      - ABUSEIPDB_API_KEY=${ABUSEIPDB_API_KEY}
+      - VIRUSTOTAL_API_KEY=${VIRUSTOTAL_API_KEY}
+      
+      # GeoIP
+      - GEOIP_ENABLED=${GEOIP_ENABLED:-false}
+      - GEOIP_DB_PATH=/app/data/geoip/GeoLite2-City.mmdb
+    
+    volumes:
+      - log-parser-logs:/app/logs
+      - geoip-data:/app/data/geoip:ro
+    
+    networks:
+      - monitoring
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.3'
+          memory: 512M
+    
+    labels:
+      - "service=log-parser"
+      - "version=1.0.0"
+      - "maintainer=tanbrando"
+      - "deployed=$(date -u '+%Y-%m-%d %H:%M:%S UTC')"

@@ -1,0 +1,51 @@
+{
+  "T1046": {
+    "name": "Network Service Scanning",
+    "tactic": "Discovery",
+    "description": "Adversaries may attempt to get a listing of services running on remote hosts",
+    "detection": "System and network discovery techniques",
+    "mitigation": "Network segmentation, disable unnecessary services"
+  },
+  "T1110": {
+    "name": "Brute Force",
+    "tactic": "Credential Access",
+    "description": "Adversaries may use brute force techniques to gain access to accounts",
+    "detection": "Monitor authentication logs for failed attempts",
+    "mitigation": "Multi-factor authentication, account lockout policies"
+  },
+  "T1110.001": {
+    "name": "Brute Force: Password Guessing",
+    "tactic": "Credential Access",
+    "description": "Adversaries may use password guessing to gain access",
+    "detection": "Failed authentication attempts",
+    "mitigation": "Strong password policy, MFA"
+  },
+  "T1190": {
+    "name": "Exploit Public-Facing Application",
+    "tactic": "Initial Access",
+    "description": "Adversaries may attempt to exploit weaknesses in web applications",
+    "detection": "Web application firewall logs",
+    "mitigation": "Regular patching, WAF deployment"
+  },
+  "T1059": {
+    "name": "Command and Scripting Interpreter",
+    "tactic": "Execution",
+    "description": "Adversaries may abuse command interpreters to execute commands",
+    "detection": "Process monitoring, command-line logging",
+    "mitigation": "Execution prevention, application control"
+  },
+  "T1071": {
+    "name": "Application Layer Protocol",
+    "tactic": "Command and Control",
+    "description": "Adversaries may communicate using application layer protocols",
+    "detection": "Network traffic analysis",
+    "mitigation": "Network intrusion prevention"
+  },
+  "T1005": {
+    "name": "Data from Local System",
+    "tactic": "Collection",
+    "description": "Adversaries may search local system sources to find files of interest",
+    "detection": "File access monitoring",
+    "mitigation": "Least privilege, data loss prevention"
+  }
+}

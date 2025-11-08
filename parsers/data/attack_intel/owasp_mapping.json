@@ -1,0 +1,62 @@
+{
+  "A01:2021": {
+    "name": "Broken Access Control",
+    "description": "Failures related to access control",
+    "examples": ["Path traversal", "Insecure direct object references"],
+    "severity": "Critical"
+  },
+  "A02:2021": {
+    "name": "Cryptographic Failures",
+    "description": "Failures related to cryptography",
+    "examples": ["Weak encryption", "Plain text passwords"],
+    "severity": "High"
+  },
+  "A03:2021": {
+    "name": "Injection",
+    "description": "SQL, NoSQL, OS command injection",
+    "examples": ["SQL injection", "Command injection", "LDAP injection"],
+    "severity": "Critical"
+  },
+  "A04:2021": {
+    "name": "Insecure Design",
+    "description": "Missing or ineffective control design",
+    "examples": ["Missing rate limiting", "Weak authentication"],
+    "severity": "High"
+  },
+  "A05:2021": {
+    "name": "Security Misconfiguration",
+    "description": "Missing security hardening",
+    "examples": ["Default credentials", "Unnecessary features enabled"],
+    "severity": "High"
+  },
+  "A06:2021": {
+    "name": "Vulnerable and Outdated Components",
+    "description": "Using components with known vulnerabilities",
+    "examples": ["Outdated libraries", "Unpatched software"],
+    "severity": "High"
+  },
+  "A07:2021": {
+    "name": "Identification and Authentication Failures",
+    "description": "Authentication and session management failures",
+    "examples": ["Weak passwords", "Session fixation"],
+    "severity": "Critical"
+  },
+  "A08:2021": {
+    "name": "Software and Data Integrity Failures",
+    "description": "Code and infrastructure without integrity verification",
+    "examples": ["Insecure deserialization", "Untrusted updates"],
+    "severity": "High"
+  },
+  "A09:2021": {
+    "name": "Security Logging and Monitoring Failures",
+    "description": "Insufficient logging and monitoring",
+    "examples": ["Missing logs", "No alerting"],
+    "severity": "Medium"
+  },
+  "A10:2021": {
+    "name": "Server-Side Request Forgery (SSRF)",
+    "description": "Fetching remote resources without validation",
+    "examples": ["SSRF to internal services"],
+    "severity": "High"
+  }
+}
