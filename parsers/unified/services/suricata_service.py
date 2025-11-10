@@ -405,7 +405,8 @@ class SuricataService:
         src_ip: Optional[str],
         dest_ip: Optional[str],
         time_range_minutes: int,
-        
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None
     ) -> List[str]:
         """Query events by IP address"""
         
@@ -418,14 +419,18 @@ class SuricataService:
         
         query = '{source="suricata"} ' + ' '.join(filters)
         
-        # Time range
-        end_time = datetime.now(timezone.utc)
-        start_time = end_time - timedelta(minutes=time_range_minutes)
+        # Use provided time range or fallback
+        if start_time and end_time:
+            start_dt = self.loki_client._parse_timestamp(start_time)
+            end_dt = self.loki_client._parse_timestamp(end_time)
+        else:
+            end_dt = datetime.now(timezone.utc)
+            start_dt = end_dt - timedelta(minutes=time_range_minutes)
         
         results = self.loki_client.query_range(
             query=query,
-            start_time=start_time,
-            end_time=end_time,
+            start_time=start_dt,
+            end_time=end_dt,
             limit=1000
         )
         

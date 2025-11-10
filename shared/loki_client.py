@@ -287,7 +287,7 @@ class LokiClient:
     
     def _parse_timestamp(self, timestamp: str) -> datetime:
         """
-        Parse timestamp from Grafana (can be Unix nanoseconds or ISO format)
+        Parse timestamp from Grafana (can be Unix milliseconds, nanoseconds, or ISO format)
         
         Args:
             timestamp: Timestamp string from Grafana
@@ -296,19 +296,22 @@ class LokiClient:
             datetime object (timezone aware)
         """
         try:
-            # Try parsing as Unix timestamp in nanoseconds (Grafana default)
-            ts_ns = int(timestamp)
-            ts_seconds = ts_ns / 1e9
+            # Try parsing as Unix timestamp (int)
+            ts = int(timestamp)
+            
+            # Determine if it's milliseconds or nanoseconds based on magnitude
+            if ts > 1e15:  # Nanoseconds (16+ digits, e.g., 1762782922792000000)
+                ts_seconds = ts / 1e9
+            elif ts > 1e12:  # Milliseconds (13+ digits, e.g., 1762782922792)
+                ts_seconds = ts / 1e3
+            elif ts > 1e9:  # Seconds (10+ digits, e.g., 1762782922)
+                ts_seconds = ts
+            else:
+                # Invalid timestamp
+                raise ValueError(f"Timestamp value too small: {ts}")
+            
             return datetime.fromtimestamp(ts_seconds, tz=timezone.utc)
-        except (ValueError, TypeError):
-            pass
-        
-        try:
-            # Try parsing as Unix timestamp in milliseconds
-            ts_ms = int(timestamp)
-            if ts_ms > 1e12:  # Likely milliseconds
-                ts_seconds = ts_ms / 1e3
-                return datetime.fromtimestamp(ts_seconds, tz=timezone.utc)
+            
         except (ValueError, TypeError):
             pass
         
