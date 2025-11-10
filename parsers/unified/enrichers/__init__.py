@@ -63,6 +63,73 @@ class EnrichmentService:
         
         return result
     
+    def get_geoip_enrichment(self, src_ip: str, dest_ip: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Get only GeoIP enrichment
+        
+        Args:
+            src_ip: Source IP address
+            dest_ip: Destination IP address (optional)
+        
+        Returns:
+            GeoIP data for source and destination
+        """
+        result = {}
+        
+        if src_ip:
+            result["source"] = self.geoip.enrich_ip(src_ip)
+        
+        if dest_ip:
+            result["destination"] = self.geoip.enrich_ip(dest_ip)
+        
+        return result
+    
+    def get_threat_intel(self, ip_address: str) -> Dict[str, Any]:
+        """
+        Get only threat intelligence
+        
+        Args:
+            ip_address: IP address to check
+        
+        Returns:
+            Threat intelligence data
+        """
+        return self.threat_intel.enrich_ip(ip_address)
+    
+    def get_attack_intel(self, attack_types: List[str]) -> Dict[str, Any]:
+        """
+        Get only attack intelligence
+        
+        Args:
+            attack_types: List of attack types
+        
+        Returns:
+            Attack intelligence with MITRE ATT&CK and OWASP mapping
+        """
+        result = {}
+        
+        if attack_types:
+            result["attacks"] = self.attack_intel.enrich_multiple_attacks(attack_types)
+            result["remediation"] = self.attack_intel.get_remediation_steps(attack_types)
+            result["mitre_summary"] = self.attack_intel.get_mitre_summary(attack_types)
+        
+        return result
+    
+    def analyze_user_agent(self, user_agent: Optional[str]) -> Dict[str, Any]:
+        """
+        Get only User-Agent analysis
+        
+        Args:
+            user_agent: User-Agent string
+        
+        Returns:
+            User-Agent analysis
+        """
+        if not user_agent:
+            return {"error": "No User-Agent provided"}
+        
+        return self.user_agent.analyze(user_agent)
+    
     def enrich_transaction(
         self,
         src_ip: str,

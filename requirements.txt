@@ -25,7 +25,8 @@ geoip2==4.7.0
 redis==5.0.1
 
 # AI/LLM (Optional)
-openai>=1.0.0
+openai>=1.0.0  # For Azure OpenAI
+google-genai  # For Google Gemini FREE - New SDK
 
 # Testing
 pytest==7.4.3

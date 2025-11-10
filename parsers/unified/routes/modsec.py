@@ -41,7 +41,11 @@ def get_transaction_summary(transaction_id: str):
     """
     Get transaction summary
     
-    GET /modsec/transaction/<transaction_id>/summary
+    GET /modsec/transaction/<transaction_id>/summary?start=<timestamp>&end=<timestamp>
+    
+    Query Parameters:
+        start: Start timestamp (Unix timestamp in nanoseconds or ISO format)
+        end: End timestamp (Unix timestamp in nanoseconds or ISO format)
     
     Response:
         200: Transaction summary
@@ -56,8 +60,16 @@ def get_transaction_summary(transaction_id: str):
                 details={"transaction_id": transaction_id}
             )
         
+        # Get time range from query parameters (Grafana sends these)
+        start_time = request.args.get('start')
+        end_time = request.args.get('end')
+        
         # Get summary
-        summary = modsec_service.get_transaction_summary(transaction_id)
+        summary = modsec_service.get_transaction_summary(
+            transaction_id=transaction_id,
+            start_time=start_time,
+            end_time=end_time
+        )
         
         return jsonify(summary), 200
         
@@ -70,7 +82,11 @@ def get_rules(transaction_id: str):
     """
     Get triggered rules
     
-    GET /modsec/transaction/<transaction_id>/rules
+    GET /modsec/transaction/<transaction_id>/rules?start=<timestamp>&end=<timestamp>
+    
+    Query Parameters:
+        start: Start timestamp (Unix timestamp in nanoseconds or ISO format)
+        end: End timestamp (Unix timestamp in nanoseconds or ISO format)
     
     Response:
         200: List of rules
@@ -81,7 +97,15 @@ def get_rules(transaction_id: str):
         if not validate_transaction_id(transaction_id):
             raise ValidationError(f"Invalid transaction_id: {transaction_id}")
         
-        rules = modsec_service.get_rules(transaction_id)
+        # Get time range from query parameters
+        start_time = request.args.get('start')
+        end_time = request.args.get('end')
+        
+        rules = modsec_service.get_rules(
+            transaction_id=transaction_id,
+            start_time=start_time,
+            end_time=end_time
+        )
         
         return jsonify(rules), 200
         
@@ -94,7 +118,11 @@ def get_taxonomy(transaction_id: str):
     """
     Get attack taxonomy
     
-    GET /modsec/transaction/<transaction_id>/taxonomy
+    GET /modsec/transaction/<transaction_id>/taxonomy?start=<timestamp>&end=<timestamp>
+    
+    Query Parameters:
+        start: Start timestamp (Unix timestamp in nanoseconds or ISO format)
+        end: End timestamp (Unix timestamp in nanoseconds or ISO format)
     
     Response:
         200: Categorized tags
@@ -105,7 +133,14 @@ def get_taxonomy(transaction_id: str):
         if not validate_transaction_id(transaction_id):
             raise ValidationError(f"Invalid transaction_id: {transaction_id}")
         
-        taxonomy = modsec_service.get_taxonomy(transaction_id)
+        start_time = request.args.get('start')
+        end_time = request.args.get('end')
+        
+        taxonomy = modsec_service.get_taxonomy(
+            transaction_id=transaction_id,
+            start_time=start_time,
+            end_time=end_time
+        )
         
         return jsonify(taxonomy), 200
         
@@ -118,7 +153,11 @@ def get_http_details(transaction_id: str):
     """
     Get HTTP request/response details
     
-    GET /modsec/transaction/<transaction_id>/http-details
+    GET /modsec/transaction/<transaction_id>/http-details?start=<timestamp>&end=<timestamp>
+    
+    Query Parameters:
+        start: Start timestamp (Unix timestamp in nanoseconds or ISO format)
+        end: End timestamp (Unix timestamp in nanoseconds or ISO format)
     
     Response:
         200: HTTP details
@@ -129,7 +168,14 @@ def get_http_details(transaction_id: str):
         if not validate_transaction_id(transaction_id):
             raise ValidationError(f"Invalid transaction_id: {transaction_id}")
         
-        http_details = modsec_service.get_http_details(transaction_id)
+        start_time = request.args.get('start')
+        end_time = request.args.get('end')
+        
+        http_details = modsec_service.get_http_details(
+            transaction_id=transaction_id,
+            start_time=start_time,
+            end_time=end_time
+        )
         
         return jsonify(http_details), 200
         
@@ -142,7 +188,11 @@ def get_client_analysis(transaction_id: str):
     """
     Get client behavior analysis
     
-    GET /modsec/transaction/<transaction_id>/client-analysis
+    GET /modsec/transaction/<transaction_id>/client-analysis?start=<timestamp>&end=<timestamp>
+    
+    Query Parameters:
+        start: Start timestamp (Unix timestamp in nanoseconds or ISO format)
+        end: End timestamp (Unix timestamp in nanoseconds or ISO format)
     
     Response:
         200: Client analysis
@@ -153,22 +203,33 @@ def get_client_analysis(transaction_id: str):
         if not validate_transaction_id(transaction_id):
             raise ValidationError(f"Invalid transaction_id: {transaction_id}")
         
-        analysis = modsec_service.get_client_analysis(transaction_id)
+        start_time = request.args.get('start')
+        end_time = request.args.get('end')
+        
+        analysis = modsec_service.get_client_analysis(
+            transaction_id=transaction_id,
+            start_time=start_time,
+            end_time=end_time
+        )
         
         return jsonify(analysis), 200
         
     except Exception as e:
         return handle_error(e)
     
-@modsec_bp.route('/transaction/<transaction_id>/enrich', methods=['GET'])
-def enrich_transaction(transaction_id: str):
+@modsec_bp.route('/transaction/<transaction_id>/geoip', methods=['GET'])
+def get_geoip_enrichment(transaction_id: str):
     """
-    Get enriched data for transaction
+    Get GeoIP enrichment for transaction
     
-    GET /modsec/transaction/<transaction_id>/enrich
+    GET /modsec/transaction/<transaction_id>/geoip?start=<timestamp>&end=<timestamp>
+    
+    Query Parameters:
+        start: Start timestamp (Unix timestamp in nanoseconds or ISO format)
+        end: End timestamp (Unix timestamp in nanoseconds or ISO format)
     
     Response:
-        200: Enrichment data (GeoIP, Threat Intel, Attack Intel, UA Analysis)
+        200: GeoIP data for source and destination IPs
         404: Transaction not found
         500: Server error
     """
@@ -176,27 +237,154 @@ def enrich_transaction(transaction_id: str):
         if not validate_transaction_id(transaction_id):
             raise ValidationError(f"Invalid transaction_id: {transaction_id}")
         
+        start_time = request.args.get('start')
+        end_time = request.args.get('end')
+        
         # Get transaction data
-        summary = modsec_service.get_transaction_summary(transaction_id)
-        http_details = modsec_service.get_http_details(transaction_id)
-        taxonomy = modsec_service.get_taxonomy(transaction_id)
-        
-        # Extract data for enrichment
-        src_ip = summary.get("src_ip")
-        dest_ip = summary.get("dest_ip")
-        attack_types = list(taxonomy.get("attack_types", {}).keys())
-        user_agent = http_details.get("request", {}).get("headers", {}).get("User-Agent")
-        
-        # Enrich
-        enrichment_service = get_enrichment_service()
-        enrichment = enrichment_service.enrich_transaction(
-            src_ip=src_ip,
-            dest_ip=dest_ip,
-            attack_types=attack_types,
-            user_agent=user_agent
+        summary = modsec_service.get_transaction_summary(
+            transaction_id=transaction_id,
+            start_time=start_time,
+            end_time=end_time
         )
         
-        return jsonify(enrichment), 200
+        # Extract IPs
+        src_ip = summary.get("src_ip")
+        dest_ip = summary.get("dest_ip")
+        
+        # Get GeoIP enrichment
+        enrichment_service = get_enrichment_service()
+        geoip_data = enrichment_service.get_geoip_enrichment(src_ip, dest_ip)
+        
+        return jsonify(geoip_data), 200
+        
+    except Exception as e:
+        return handle_error(e)
+
+
+@modsec_bp.route('/transaction/<transaction_id>/threat-intel', methods=['GET'])
+def get_threat_intel(transaction_id: str):
+    """
+    Get threat intelligence for transaction
+    
+    GET /modsec/transaction/<transaction_id>/threat-intel?start=<timestamp>&end=<timestamp>
+    
+    Query Parameters:
+        start: Start timestamp (Unix timestamp in nanoseconds or ISO format)
+        end: End timestamp (Unix timestamp in nanoseconds or ISO format)
+    
+    Response:
+        200: Threat intelligence data
+        404: Transaction not found
+        500: Server error
+    """
+    try:
+        if not validate_transaction_id(transaction_id):
+            raise ValidationError(f"Invalid transaction_id: {transaction_id}")
+        
+        start_time = request.args.get('start')
+        end_time = request.args.get('end')
+        
+        # Get transaction data
+        summary = modsec_service.get_transaction_summary(
+            transaction_id=transaction_id,
+            start_time=start_time,
+            end_time=end_time
+        )
+        
+        # Extract IP
+        src_ip = summary.get("src_ip")
+        
+        # Get threat intel
+        enrichment_service = get_enrichment_service()
+        threat_data = enrichment_service.get_threat_intel(src_ip)
+        
+        return jsonify(threat_data), 200
+        
+    except Exception as e:
+        return handle_error(e)
+
+
+@modsec_bp.route('/transaction/<transaction_id>/attack-intel', methods=['GET'])
+def get_attack_intel(transaction_id: str):
+    """
+    Get attack intelligence for transaction
+    
+    GET /modsec/transaction/<transaction_id>/attack-intel?start=<timestamp>&end=<timestamp>
+    
+    Query Parameters:
+        start: Start timestamp (Unix timestamp in nanoseconds or ISO format)
+        end: End timestamp (Unix timestamp in nanoseconds or ISO format)
+    
+    Response:
+        200: Attack intelligence (MITRE ATT&CK, OWASP)
+        404: Transaction not found
+        500: Server error
+    """
+    try:
+        if not validate_transaction_id(transaction_id):
+            raise ValidationError(f"Invalid transaction_id: {transaction_id}")
+        
+        start_time = request.args.get('start')
+        end_time = request.args.get('end')
+        
+        # Get transaction data
+        taxonomy = modsec_service.get_taxonomy(
+            transaction_id=transaction_id,
+            start_time=start_time,
+            end_time=end_time
+        )
+        
+        # Extract attack types
+        attack_types = list(taxonomy.get("attack_types", {}).keys())
+        
+        # Get attack intel
+        enrichment_service = get_enrichment_service()
+        attack_data = enrichment_service.get_attack_intel(attack_types)
+        
+        return jsonify(attack_data), 200
+        
+    except Exception as e:
+        return handle_error(e)
+
+
+@modsec_bp.route('/transaction/<transaction_id>/user-agent', methods=['GET'])
+def get_user_agent_analysis(transaction_id: str):
+    """
+    Get User-Agent analysis for transaction
+    
+    GET /modsec/transaction/<transaction_id>/user-agent?start=<timestamp>&end=<timestamp>
+    
+    Query Parameters:
+        start: Start timestamp (Unix timestamp in nanoseconds or ISO format)
+        end: End timestamp (Unix timestamp in nanoseconds or ISO format)
+    
+    Response:
+        200: User-Agent analysis
+        404: Transaction not found
+        500: Server error
+    """
+    try:
+        if not validate_transaction_id(transaction_id):
+            raise ValidationError(f"Invalid transaction_id: {transaction_id}")
+        
+        start_time = request.args.get('start')
+        end_time = request.args.get('end')
+        
+        # Get HTTP details
+        http_details = modsec_service.get_http_details(
+            transaction_id=transaction_id,
+            start_time=start_time,
+            end_time=end_time
+        )
+        
+        # Extract User-Agent
+        user_agent = http_details.get("request", {}).get("headers", {}).get("User-Agent")
+        
+        # Analyze User-Agent
+        enrichment_service = get_enrichment_service()
+        ua_analysis = enrichment_service.analyze_user_agent(user_agent)
+        
+        return jsonify(ua_analysis), 200
         
     except Exception as e:
         return handle_error(e)
@@ -207,7 +395,11 @@ def ai_analyze_transaction(transaction_id: str):
     """
     AI analysis of ModSecurity transaction
     
-    GET /modsec/transaction/<transaction_id>/ai-analyze
+    GET /modsec/transaction/<transaction_id>/ai-analyze?start=<timestamp>&end=<timestamp>
+    
+    Query Parameters:
+        start: Start timestamp (Unix timestamp in nanoseconds or ISO format)
+        end: End timestamp (Unix timestamp in nanoseconds or ISO format)
     
     Response:
         200: AI analysis (narrative, threat assessment, recommendations)
@@ -228,13 +420,28 @@ def ai_analyze_transaction(transaction_id: str):
                 "message": "AI analysis not available. Configure Azure OpenAI in .env"
             }), 503
         
+        start_time = request.args.get('start')
+        end_time = request.args.get('end')
+        
         # Get transaction data
-        summary = modsec_service.get_transaction_summary(transaction_id)
-        rules = modsec_service.get_rules(transaction_id)
-        http_details = modsec_service.get_http_details(transaction_id)
+        summary = modsec_service.get_transaction_summary(
+            transaction_id=transaction_id,
+            start_time=start_time,
+            end_time=end_time
+        )
+        rules = modsec_service.get_rules(
+            transaction_id=transaction_id,
+            start_time=start_time,
+            end_time=end_time
+        )
+        http_details = modsec_service.get_http_details(
+            transaction_id=transaction_id,
+            start_time=start_time,
+            end_time=end_time
+        )
         
         # Get enrichment
-        from parsers.unified.enrichers import get_enrichment_service
+        from enrichers import get_enrichment_service
         enrichment_service = get_enrichment_service()
         
         src_ip = summary.get("src_ip")

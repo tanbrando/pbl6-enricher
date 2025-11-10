@@ -25,12 +25,19 @@ class ModSecService:
         self.parser = ModSecParser()
         self.logger = logger
     
-    def get_transaction_summary(self, transaction_id: str) -> Dict[str, Any]:
+    def get_transaction_summary(
+        self, 
+        transaction_id: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Get transaction summary
         
         Args:
             transaction_id: ModSecurity transaction unique_id
+            start_time: Start timestamp (from Grafana)
+            end_time: End timestamp (from Grafana)
         
         Returns:
             Transaction summary dict
@@ -41,7 +48,8 @@ class ModSecService:
         log_content = self.loki_client.query_transaction(
             transaction_id=transaction_id,
             source="modsecurity",
-            time_range_minutes=30
+            start_time=start_time,
+            end_time=end_time
         )
         
         # Parse
@@ -53,12 +61,19 @@ class ModSecService:
         
         return summary
     
-    def get_rules(self, transaction_id: str) -> List[Dict[str, Any]]:
+    def get_rules(
+        self, 
+        transaction_id: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """
         Get all triggered rules for transaction
         
         Args:
             transaction_id: ModSecurity transaction unique_id
+            start_time: Start timestamp (from Grafana)
+            end_time: End timestamp (from Grafana)
         
         Returns:
             List of triggered rules
@@ -68,7 +83,9 @@ class ModSecService:
         # Query Loki
         log_content = self.loki_client.query_transaction(
             transaction_id=transaction_id,
-            source="modsecurity"
+            source="modsecurity",
+            start_time=start_time,
+            end_time=end_time
         )
         
         # Parse rules
@@ -76,12 +93,19 @@ class ModSecService:
         
         return rules
     
-    def get_taxonomy(self, transaction_id: str) -> Dict[str, Any]:
+    def get_taxonomy(
+        self, 
+        transaction_id: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Get attack taxonomy for transaction
         
         Args:
             transaction_id: ModSecurity transaction unique_id
+            start_time: Start timestamp (from Grafana)
+            end_time: End timestamp (from Grafana)
         
         Returns:
             Categorized attack tags
@@ -91,7 +115,9 @@ class ModSecService:
         # Query Loki
         log_content = self.loki_client.query_transaction(
             transaction_id=transaction_id,
-            source="modsecurity"
+            source="modsecurity",
+            start_time=start_time,
+            end_time=end_time
         )
         
         # Parse taxonomy
@@ -99,12 +125,19 @@ class ModSecService:
         
         return taxonomy
     
-    def get_http_details(self, transaction_id: str) -> Dict[str, Any]:
+    def get_http_details(
+        self, 
+        transaction_id: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Get HTTP request/response details
         
         Args:
             transaction_id: ModSecurity transaction unique_id
+            start_time: Start timestamp (from Grafana)
+            end_time: End timestamp (from Grafana)
         
         Returns:
             HTTP details dict
@@ -114,7 +147,9 @@ class ModSecService:
         # Query Loki
         log_content = self.loki_client.query_transaction(
             transaction_id=transaction_id,
-            source="modsecurity"
+            source="modsecurity",
+            start_time=start_time,
+            end_time=end_time
         )
         
         # Parse HTTP
@@ -122,12 +157,19 @@ class ModSecService:
         
         return http_details
     
-    def get_client_analysis(self, transaction_id: str) -> Dict[str, Any]:
+    def get_client_analysis(
+        self, 
+        transaction_id: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Analyze client behavior (User-Agent, IP, etc.)
         
         Args:
             transaction_id: ModSecurity transaction unique_id
+            start_time: Start timestamp (from Grafana)
+            end_time: End timestamp (from Grafana)
         
         Returns:
             Client analysis dict
@@ -135,8 +177,8 @@ class ModSecService:
         self.logger.info(f"Analyzing client for transaction: {transaction_id}")
         
         # Get summary and HTTP details
-        summary = self.get_transaction_summary(transaction_id)
-        http_details = self.get_http_details(transaction_id)
+        summary = self.get_transaction_summary(transaction_id, start_time, end_time)
+        http_details = self.get_http_details(transaction_id, start_time, end_time)
         
         # Extract User-Agent
         user_agent = http_details.get("request", {}).get("headers", {}).get("User-Agent", "")

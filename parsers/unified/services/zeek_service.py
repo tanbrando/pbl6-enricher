@@ -24,12 +24,19 @@ class ZeekService:
         self.parser = ZeekParser()
         self.logger = logger
     
-    def get_notice_summary(self, notice_uid: str) -> Dict[str, Any]:
+    def get_notice_summary(
+        self,
+        notice_uid: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Get notice summary
         
         Args:
             notice_uid: Zeek notice UID
+            start_time: Start timestamp (from Grafana)
+            end_time: End timestamp (from Grafana)
         
         Returns:
             Notice summary dict
@@ -37,7 +44,7 @@ class ZeekService:
         self.logger.info(f"Getting summary for notice UID: {notice_uid}")
         
         # Query notice logs
-        log_entries = self._query_logs_by_uid(notice_uid, log_type="notice")
+        log_entries = self._query_logs_by_uid(notice_uid, log_type="notice", start_time=start_time, end_time=end_time)
         
         # Parse summary
         summary = self.parser.parse_notice_summary(log_entries)
@@ -47,7 +54,9 @@ class ZeekService:
             conn_entries = self._query_related_connections(
                 summary.get("src"),
                 summary.get("dst"),
-                summary.get("timestamp")
+                summary.get("timestamp"),
+                start_time=start_time,
+                end_time=end_time
             )
             summary["total_connections"] = len(conn_entries)
         except:
@@ -58,6 +67,8 @@ class ZeekService:
     def get_related_notices(
         self,
         notice_uid: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
         time_range_minutes: int = 30
     ) -> List[Dict[str, Any]]:
         """
@@ -65,6 +76,8 @@ class ZeekService:
         
         Args:
             notice_uid: Primary notice UID
+            start_time: Start timestamp (from Grafana)
+            end_time: End timestamp (from Grafana)
             time_range_minutes: Time range to search
         
         Returns:
@@ -73,7 +86,7 @@ class ZeekService:
         self.logger.info(f"Getting related notices for UID: {notice_uid}")
         
         # Get primary notice
-        primary_entries = self._query_logs_by_uid(notice_uid, log_type="notice")
+        primary_entries = self._query_logs_by_uid(notice_uid, log_type="notice", start_time=start_time, end_time=end_time)
         summary = self.parser.parse_notice_summary(primary_entries)
         
         src = summary.get("src")
@@ -84,7 +97,9 @@ class ZeekService:
             src_ip=src,
             dest_ip=dst,
             log_type="notice",
-            time_range_minutes=time_range_minutes
+            time_range_minutes=time_range_minutes,
+            start_time=start_time,
+            end_time=end_time
         )
         
         # Parse notices
@@ -94,44 +109,57 @@ class ZeekService:
     
     def get_conn_summary(
         self,
-        notice_uid: str
+        notice_uid: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Get connection summary for notice
         
         Args:
-            notice_uid: Notice UID
+            notice_uid: Zeek notice UID
+            start_time: Start timestamp (from Grafana)
+            end_time: End timestamp (from Grafana)
         
         Returns:
-            Connection summary statistics
+            Connection statistics
         """
         self.logger.info(f"Getting conn summary for notice UID: {notice_uid}")
         
-        # Get notice to extract IPs
-        notice_entries = self._query_logs_by_uid(notice_uid, log_type="notice")
+        # Get notice
+        notice_entries = self._query_logs_by_uid(notice_uid, log_type="notice", start_time=start_time, end_time=end_time)
         summary = self.parser.parse_notice_summary(notice_entries)
         
         src = summary.get("src")
         dst = summary.get("dst")
-        timestamp = summary.get("timestamp")
         
         # Query connections
-        conn_entries = self._query_related_connections(src, dst, timestamp)
+        conn_entries = self._query_related_connections(
+            src_ip=src,
+            dest_ip=dst,
+            notice_timestamp=summary.get("timestamp"),
+            start_time=start_time,
+            end_time=end_time
+        )
         
-        # Parse summary
+        # Parse connection summary
         conn_summary = self.parser.parse_conn_summary(conn_entries)
         
         return conn_summary
     
     def get_http_events(
         self,
-        notice_uid: str
+        notice_uid: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         Get HTTP events related to notice
         
         Args:
             notice_uid: Notice UID
+            start_time: Start timestamp (from Grafana)
+            end_time: End timestamp (from Grafana)
         
         Returns:
             List of HTTP events
@@ -139,7 +167,7 @@ class ZeekService:
         self.logger.info(f"Getting HTTP events for notice UID: {notice_uid}")
         
         # Get notice IPs
-        notice_entries = self._query_logs_by_uid(notice_uid, log_type="notice")
+        notice_entries = self._query_logs_by_uid(notice_uid, log_type="notice", start_time=start_time, end_time=end_time)
         summary = self.parser.parse_notice_summary(notice_entries)
         
         src = summary.get("src")
@@ -150,6 +178,8 @@ class ZeekService:
             src_ip=src,
             dest_ip=dst,
             log_type="http",
+            start_time=start_time,
+            end_time=end_time,
             time_range_minutes=30
         )
         
@@ -369,7 +399,9 @@ class ZeekService:
     def _query_logs_by_uid(
         self,
         uid: str,
-        log_type: str = None
+        log_type: str = None,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None
     ) -> List[str]:
         """Query Zeek logs by UID"""
         
@@ -379,14 +411,18 @@ class ZeekService:
         else:
             query = f'{{source="zeek"}} |= `"uid":"{uid}"`'
         
-        # Time range: last 24 hours
-        end_time = datetime.now(timezone.utc)
-        start_time = end_time - timedelta(hours=24)
+        # Use provided time range or fallback to last 24 hours
+        if start_time and end_time:
+            start_dt = self.loki_client._parse_timestamp(start_time)
+            end_dt = self.loki_client._parse_timestamp(end_time)
+        else:
+            end_dt = datetime.now(timezone.utc)
+            start_dt = end_dt - timedelta(hours=24)
         
         results = self.loki_client.query_range(
             query=query,
-            start_time=start_time,
-            end_time=end_time,
+            start_time=start_dt,
+            end_time=end_dt,
             limit=500
         )
         
@@ -410,6 +446,8 @@ class ZeekService:
         src_ip: Optional[str],
         dest_ip: Optional[str],
         log_type: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
         time_range_minutes: int = 30
     ) -> List[str]:
         """Query Zeek logs by IP address"""
@@ -423,14 +461,18 @@ class ZeekService:
         
         query = f'{{source="zeek", log_type="{log_type}"}} ' + ' '.join(filters)
         
-        # Time range
-        end_time = datetime.now(timezone.utc)
-        start_time = end_time - timedelta(minutes=time_range_minutes)
+        # Use provided time range or fallback
+        if start_time and end_time:
+            start_dt = self.loki_client._parse_timestamp(start_time)
+            end_dt = self.loki_client._parse_timestamp(end_time)
+        else:
+            end_dt = datetime.now(timezone.utc)
+            start_dt = end_dt - timedelta(minutes=time_range_minutes)
         
         results = self.loki_client.query_range(
             query=query,
-            start_time=start_time,
-            end_time=end_time,
+            start_time=start_dt,
+            end_time=end_dt,
             limit=1000
         )
         
@@ -447,7 +489,9 @@ class ZeekService:
         self,
         src_ip: str,
         dest_ip: str,
-        timestamp: str
+        notice_timestamp: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None
     ) -> List[str]:
         """Query conn.log for related connections"""
         
@@ -457,14 +501,18 @@ class ZeekService:
             |= `{dest_ip}`
         '''
         
-        # Time range: ±30 minutes around notice
-        end_time = datetime.now(timezone.utc)
-        start_time = end_time - timedelta(hours=1)
+        # Use provided time range or fallback to ±30 minutes around notice
+        if start_time and end_time:
+            start_dt = self.loki_client._parse_timestamp(start_time)
+            end_dt = self.loki_client._parse_timestamp(end_time)
+        else:
+            end_dt = datetime.now(timezone.utc)
+            start_dt = end_dt - timedelta(hours=1)
         
         results = self.loki_client.query_range(
             query=query,
-            start_time=start_time,
-            end_time=end_time,
+            start_time=start_dt,
+            end_time=end_dt,
             limit=500
         )
         

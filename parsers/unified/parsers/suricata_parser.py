@@ -205,7 +205,7 @@ class SuricataParser:
                 continue
             
             if event.get("event_type") == "dns":
-                dns_data = event.get("dns", {})
+                dns_data = event.get("queries", {})
                 
                 dns_event = {
                     "timestamp": event.get("timestamp"),

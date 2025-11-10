@@ -39,7 +39,11 @@ def get_flow_summary(flow_id: str):
     """
     Get flow summary
     
-    GET /suricata/flow/<flow_id>/summary
+    GET /suricata/flow/<flow_id>/summary?start=<timestamp>&end=<timestamp>
+    
+    Query Parameters:
+        start: Start timestamp (Unix timestamp in nanoseconds or ISO format)
+        end: End timestamp (Unix timestamp in nanoseconds or ISO format)
     
     Response:
         200: Flow summary
@@ -47,7 +51,14 @@ def get_flow_summary(flow_id: str):
         500: Server error
     """
     try:
-        summary = suricata_service.get_flow_summary(flow_id)
+        start_time = request.args.get('start')
+        end_time = request.args.get('end')
+        
+        summary = suricata_service.get_flow_summary(
+            flow_id=flow_id,
+            start_time=start_time,
+            end_time=end_time
+        )
         return jsonify(summary), 200
     except Exception as e:
         return handle_error(e)
@@ -58,7 +69,11 @@ def get_alerts(flow_id: str):
     """
     Get alerts for flow (severity 1 or 2)
     
-    GET /suricata/flow/<flow_id>/alerts
+    GET /suricata/flow/<flow_id>/alerts?start=<timestamp>&end=<timestamp>
+    
+    Query Parameters:
+        start: Start timestamp (Unix timestamp in nanoseconds or ISO format)
+        end: End timestamp (Unix timestamp in nanoseconds or ISO format)
     
     Response:
         200: List of alerts
@@ -66,7 +81,14 @@ def get_alerts(flow_id: str):
         500: Server error
     """
     try:
-        alerts = suricata_service.get_alerts(flow_id=flow_id)
+        start_time = request.args.get('start')
+        end_time = request.args.get('end')
+        
+        alerts = suricata_service.get_alerts(
+            flow_id=flow_id,
+            start_time=start_time,
+            end_time=end_time
+        )
         return jsonify(alerts), 200
     except Exception as e:
         return handle_error(e)
@@ -85,7 +107,13 @@ def get_http_events(flow_id: str):
         500: Server error
     """
     try:
-        http_events = suricata_service.get_http_events(flow_id)
+        start_time = request.args.get('start')
+        end_time = request.args.get('end')
+        http_events = suricata_service.get_http_events(
+            flow_id=flow_id,
+            start_time=start_time,
+            end_time=end_time
+        )
         return jsonify(http_events), 200
     except Exception as e:
         return handle_error(e)
@@ -104,7 +132,13 @@ def get_dns_events(flow_id: str):
         500: Server error
     """
     try:
-        dns_events = suricata_service.get_dns_events(flow_id=flow_id)
+        start_time = request.args.get('start')
+        end_time = request.args.get('end')
+        dns_events = suricata_service.get_dns_events(
+            flow_id=flow_id,
+            start_time=start_time,
+            end_time=end_time
+        )
         return jsonify(dns_events), 200
     except Exception as e:
         return handle_error(e)
@@ -123,7 +157,13 @@ def get_tls_events(flow_id: str):
         500: Server error
     """
     try:
-        tls_events = suricata_service.get_tls_events(flow_id)
+        start_time = request.args.get('start')
+        end_time = request.args.get('end')
+        tls_events = suricata_service.get_tls_events(
+            flow_id=flow_id,
+            start_time=start_time,
+            end_time=end_time
+        )
         return jsonify(tls_events), 200
     except Exception as e:
         return handle_error(e)
@@ -142,7 +182,13 @@ def get_context(flow_id: str):
         500: Server error
     """
     try:
-        context = suricata_service.get_context_logs(flow_id)
+        start_time = request.args.get('start')
+        end_time = request.args.get('end')
+        context = suricata_service.get_context_logs(
+            flow_id=flow_id,
+            start_time=start_time,
+            end_time=end_time
+        )
         return jsonify(context), 200
     except Exception as e:
         return handle_error(e)
@@ -161,7 +207,13 @@ def get_alert_categorization(flow_id: str):
         500: Server error
     """
     try:
-        categorization = suricata_service.get_alert_categorization(flow_id)
+        start_time = request.args.get('start')
+        end_time = request.args.get('end')
+        categorization = suricata_service.get_alert_categorization(
+            flow_id=flow_id,
+            start_time=start_time,
+            end_time=end_time
+        )
         return jsonify(categorization), 200
     except Exception as e:
         return handle_error(e)
@@ -180,7 +232,13 @@ def correlate_zeek(flow_id: str):
         500: Server error
     """
     try:
-        correlation = suricata_service.correlate_with_zeek(flow_id)
+        start_time = request.args.get('start')
+        end_time = request.args.get('end')
+        correlation = suricata_service.correlate_with_zeek(
+            flow_id=flow_id,
+            start_time=start_time,
+            end_time=end_time
+        )
         return jsonify(correlation), 200
     except Exception as e:
         return handle_error(e)
@@ -199,7 +257,13 @@ def correlate_ufw(flow_id: str):
         500: Server error
     """
     try:
-        correlation = suricata_service.correlate_with_ufw(flow_id)
+        start_time = request.args.get('start')
+        end_time = request.args.get('end')
+        correlation = suricata_service.correlate_with_ufw(
+            flow_id=flow_id,
+            start_time=start_time,
+            end_time=end_time
+        )
         return jsonify(correlation), 200
     except Exception as e:
         return handle_error(e)
@@ -241,43 +305,126 @@ def search_alerts():
     except Exception as e:
         return handle_error(e)
 
-@suricata_bp.route('/flow/<flow_id>/enrich', methods=['GET'])
-def enrich_flow(flow_id: str):
+@suricata_bp.route('/flow/<flow_id>/geoip', methods=['GET'])
+def get_geoip_enrichment(flow_id: str):
     """
-    Get enriched data for flow
+    Get GeoIP enrichment for flow
     
-    GET /suricata/flow/<flow_id>/enrich
+    GET /suricata/flow/<flow_id>/geoip?start=<timestamp>&end=<timestamp>
+    
+    Query Parameters:
+        start: Start timestamp (Unix timestamp in nanoseconds or ISO format)
+        end: End timestamp (Unix timestamp in nanoseconds or ISO format)
     
     Response:
-        200: Enrichment data
+        200: GeoIP data for source and destination IPs
         404: Flow not found
         500: Server error
     """
     try:
-        # Get flow data
-        summary = suricata_service.get_flow_summary(flow_id)
-        alerts = suricata_service.get_alerts(flow_id=flow_id)
+        start_time = request.args.get('start')
+        end_time = request.args.get('end')
         
-        # Extract data
+        # Get flow data
+        summary = suricata_service.get_flow_summary(
+            flow_id=flow_id,
+            start_time=start_time,
+            end_time=end_time
+        )
+        
+        # Extract IPs
         src_ip = summary.get("src_ip")
         dest_ip = summary.get("dest_ip")
+        
+        # Get GeoIP enrichment
+        enrichment_service = get_enrichment_service()
+        geoip_data = enrichment_service.get_geoip_enrichment(src_ip, dest_ip)
+        
+        return jsonify(geoip_data), 200
+        
+    except Exception as e:
+        return handle_error(e)
+
+
+@suricata_bp.route('/flow/<flow_id>/threat-intel', methods=['GET'])
+def get_threat_intel(flow_id: str):
+    """
+    Get threat intelligence for flow
+    
+    GET /suricata/flow/<flow_id>/threat-intel?start=<timestamp>&end=<timestamp>
+    
+    Query Parameters:
+        start: Start timestamp (Unix timestamp in nanoseconds or ISO format)
+        end: End timestamp (Unix timestamp in nanoseconds or ISO format)
+    
+    Response:
+        200: Threat intelligence data
+        404: Flow not found
+        500: Server error
+    """
+    try:
+        start_time = request.args.get('start')
+        end_time = request.args.get('end')
+        
+        # Get flow data
+        summary = suricata_service.get_flow_summary(
+            flow_id=flow_id,
+            start_time=start_time,
+            end_time=end_time
+        )
+        
+        # Extract IP
+        src_ip = summary.get("src_ip")
+        
+        # Get threat intel
+        enrichment_service = get_enrichment_service()
+        threat_data = enrichment_service.get_threat_intel(src_ip)
+        
+        return jsonify(threat_data), 200
+        
+    except Exception as e:
+        return handle_error(e)
+
+
+@suricata_bp.route('/flow/<flow_id>/attack-intel', methods=['GET'])
+def get_attack_intel(flow_id: str):
+    """
+    Get attack intelligence for flow
+    
+    GET /suricata/flow/<flow_id>/attack-intel?start=<timestamp>&end=<timestamp>
+    
+    Query Parameters:
+        start: Start timestamp (Unix timestamp in nanoseconds or ISO format)
+        end: End timestamp (Unix timestamp in nanoseconds or ISO format)
+    
+    Response:
+        200: Attack intelligence (MITRE ATT&CK mapping)
+        404: Flow not found
+        500: Server error
+    """
+    try:
+        start_time = request.args.get('start')
+        end_time = request.args.get('end')
+        
+        # Get alerts
+        alerts = suricata_service.get_alerts(
+            flow_id=flow_id,
+            start_time=start_time,
+            end_time=end_time
+        )
         
         # Extract attack categories from alerts
         attack_types = []
         for alert in alerts:
             category = alert.get("category", "")
-            if category:
+            if category and category not in attack_types:
                 attack_types.append(category)
         
-        # Enrich
+        # Get attack intel
         enrichment_service = get_enrichment_service()
-        enrichment = enrichment_service.enrich_transaction(
-            src_ip=src_ip,
-            dest_ip=dest_ip,
-            attack_types=attack_types
-        )
+        attack_data = enrichment_service.get_attack_intel(attack_types)
         
-        return jsonify(enrichment), 200
+        return jsonify(attack_data), 200
         
     except Exception as e:
         return handle_error(e)
@@ -287,7 +434,11 @@ def ai_analyze_flow(flow_id: str):
     """
     AI analysis of Suricata flow
     
-    GET /suricata/flow/<flow_id>/ai-analyze
+    GET /suricata/flow/<flow_id>/ai-analyze?start=<timestamp>&end=<timestamp>
+    
+    Query Parameters:
+        start: Start timestamp (Unix timestamp in nanoseconds or ISO format)
+        end: End timestamp (Unix timestamp in nanoseconds or ISO format)
     
     Response:
         200: AI analysis
@@ -305,15 +456,38 @@ def ai_analyze_flow(flow_id: str):
                 "message": "AI analysis not available. Configure Azure OpenAI in .env"
             }), 503
         
+        start_time = request.args.get('start')
+        end_time = request.args.get('end')
+        
         # Get flow data
-        summary = suricata_service.get_flow_summary(flow_id)
-        alerts = suricata_service.get_alerts(flow_id=flow_id)
-        http_events = suricata_service.get_http_events(flow_id)
-        dns_events = suricata_service.get_dns_events(flow_id=flow_id)
-        tls_events = suricata_service.get_tls_events(flow_id)
+        summary = suricata_service.get_flow_summary(
+            flow_id=flow_id,
+            start_time=start_time,
+            end_time=end_time
+        )
+        alerts = suricata_service.get_alerts(
+            flow_id=flow_id,
+            start_time=start_time,
+            end_time=end_time
+        )
+        http_events = suricata_service.get_http_events(
+            flow_id=flow_id,
+            start_time=start_time,
+            end_time=end_time
+        )
+        dns_events = suricata_service.get_dns_events(
+            flow_id=flow_id,
+            start_time=start_time,
+            end_time=end_time
+        )
+        tls_events = suricata_service.get_tls_events(
+            flow_id=flow_id,
+            start_time=start_time,
+            end_time=end_time
+        )
         
         # Get enrichment
-        from parsers.unified.enrichers import get_enrichment_service
+        from enrichers import get_enrichment_service
         enrichment_service = get_enrichment_service()
         
         src_ip = summary.get("src_ip")

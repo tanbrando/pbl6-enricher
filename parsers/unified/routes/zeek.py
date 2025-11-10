@@ -39,7 +39,11 @@ def get_notice_summary(notice_uid: str):
     """
     Get notice summary
     
-    GET /zeek/notice/<notice_uid>/summary
+    GET /zeek/notice/<notice_uid>/summary?start=<timestamp>&end=<timestamp>
+    
+    Query Parameters:
+        start: Start timestamp (Unix timestamp in nanoseconds or ISO format)
+        end: End timestamp (Unix timestamp in nanoseconds or ISO format)
     
     Response:
         200: Notice summary with stats
@@ -47,7 +51,14 @@ def get_notice_summary(notice_uid: str):
         500: Server error
     """
     try:
-        summary = zeek_service.get_notice_summary(notice_uid)
+        start_time = request.args.get('start')
+        end_time = request.args.get('end')
+        
+        summary = zeek_service.get_notice_summary(
+            notice_uid=notice_uid,
+            start_time=start_time,
+            end_time=end_time
+        )
         return jsonify(summary), 200
     except Exception as e:
         return handle_error(e)
@@ -213,25 +224,115 @@ def correlate_suricata(notice_uid: str):
     except Exception as e:
         return handle_error(e)
     
-@zeek_bp.route('/notice/<notice_uid>/enrich', methods=['GET'])
-def enrich_notice(notice_uid: str):
+@zeek_bp.route('/notice/<notice_uid>/geoip', methods=['GET'])
+def get_geoip_enrichment(notice_uid: str):
     """
-    Get enriched data for notice
+    Get GeoIP enrichment for notice
     
-    GET /zeek/notice/<notice_uid>/enrich
+    GET /zeek/notice/<notice_uid>/geoip?start=<timestamp>&end=<timestamp>
+    
+    Query Parameters:
+        start: Start timestamp (Unix timestamp in nanoseconds or ISO format)
+        end: End timestamp (Unix timestamp in nanoseconds or ISO format)
     
     Response:
-        200: Enrichment data
+        200: GeoIP data for source and destination IPs
         404: Notice not found
         500: Server error
     """
     try:
-        # Get notice data
-        summary = zeek_service.get_notice_summary(notice_uid)
+        start_time = request.args.get('start')
+        end_time = request.args.get('end')
         
-        # Extract data
+        # Get notice data
+        summary = zeek_service.get_notice_summary(
+            notice_uid=notice_uid,
+            start_time=start_time,
+            end_time=end_time
+        )
+        
+        # Extract IPs
         src_ip = summary.get("src")
         dest_ip = summary.get("dst")
+        
+        # Get GeoIP enrichment
+        enrichment_service = get_enrichment_service()
+        geoip_data = enrichment_service.get_geoip_enrichment(src_ip, dest_ip)
+        
+        return jsonify(geoip_data), 200
+        
+    except Exception as e:
+        return handle_error(e)
+
+
+@zeek_bp.route('/notice/<notice_uid>/threat-intel', methods=['GET'])
+def get_threat_intel(notice_uid: str):
+    """
+    Get threat intelligence for notice
+    
+    GET /zeek/notice/<notice_uid>/threat-intel?start=<timestamp>&end=<timestamp>
+    
+    Query Parameters:
+        start: Start timestamp (Unix timestamp in nanoseconds or ISO format)
+        end: End timestamp (Unix timestamp in nanoseconds or ISO format)
+    
+    Response:
+        200: Threat intelligence data
+        404: Notice not found
+        500: Server error
+    """
+    try:
+        start_time = request.args.get('start')
+        end_time = request.args.get('end')
+        
+        # Get notice data
+        summary = zeek_service.get_notice_summary(
+            notice_uid=notice_uid,
+            start_time=start_time,
+            end_time=end_time
+        )
+        
+        # Extract IP
+        src_ip = summary.get("src")
+        
+        # Get threat intel
+        enrichment_service = get_enrichment_service()
+        threat_data = enrichment_service.get_threat_intel(src_ip)
+        
+        return jsonify(threat_data), 200
+        
+    except Exception as e:
+        return handle_error(e)
+
+
+@zeek_bp.route('/notice/<notice_uid>/attack-intel', methods=['GET'])
+def get_attack_intel(notice_uid: str):
+    """
+    Get attack intelligence for notice
+    
+    GET /zeek/notice/<notice_uid>/attack-intel?start=<timestamp>&end=<timestamp>
+    
+    Query Parameters:
+        start: Start timestamp (Unix timestamp in nanoseconds or ISO format)
+        end: End timestamp (Unix timestamp in nanoseconds or ISO format)
+    
+    Response:
+        200: Attack intelligence mapping
+        404: Notice not found
+        500: Server error
+    """
+    try:
+        start_time = request.args.get('start')
+        end_time = request.args.get('end')
+        
+        # Get notice data
+        summary = zeek_service.get_notice_summary(
+            notice_uid=notice_uid,
+            start_time=start_time,
+            end_time=end_time
+        )
+        
+        # Extract notice type
         notice_type = summary.get("notice_type")
         
         # Map notice type to attack category
@@ -239,15 +340,11 @@ def enrich_notice(notice_uid: str):
         if notice_type:
             attack_types.append(notice_type)
         
-        # Enrich
+        # Get attack intel
         enrichment_service = get_enrichment_service()
-        enrichment = enrichment_service.enrich_transaction(
-            src_ip=src_ip,
-            dest_ip=dest_ip,
-            attack_types=attack_types
-        )
+        attack_data = enrichment_service.get_attack_intel(attack_types)
         
-        return jsonify(enrichment), 200
+        return jsonify(attack_data), 200
         
     except Exception as e:
         return handle_error(e)
@@ -257,7 +354,11 @@ def ai_analyze_notice(notice_uid: str):
     """
     AI analysis of Zeek notice
     
-    GET /zeek/notice/<notice_uid>/ai-analyze
+    GET /zeek/notice/<notice_uid>/ai-analyze?start=<timestamp>&end=<timestamp>
+    
+    Query Parameters:
+        start: Start timestamp (Unix timestamp in nanoseconds or ISO format)
+        end: End timestamp (Unix timestamp in nanoseconds or ISO format)
     
     Response:
         200: AI analysis
@@ -275,13 +376,40 @@ def ai_analyze_notice(notice_uid: str):
                 "message": "AI analysis not available. Configure Azure OpenAI in .env"
             }), 503
         
+        start_time = request.args.get('start')
+        end_time = request.args.get('end')
+        
         # Get notice data
-        summary = zeek_service.get_notice_summary(notice_uid)
-        related_notices = zeek_service.get_related_notices(notice_uid)
-        conn_summary = zeek_service.get_conn_summary(notice_uid)
-        http_events = zeek_service.get_http_events(notice_uid)
-        dns_events = zeek_service.get_dns_events(notice_uid)
-        weird_events = zeek_service.get_weird_events(notice_uid)
+        summary = zeek_service.get_notice_summary(
+            notice_uid=notice_uid,
+            start_time=start_time,
+            end_time=end_time
+        )
+        related_notices = zeek_service.get_related_notices(
+            notice_uid=notice_uid,
+            start_time=start_time,
+            end_time=end_time
+        )
+        conn_summary = zeek_service.get_conn_summary(
+            notice_uid=notice_uid,
+            start_time=start_time,
+            end_time=end_time
+        )
+        http_events = zeek_service.get_http_events(
+            notice_uid=notice_uid,
+            start_time=start_time,
+            end_time=end_time
+        )
+        dns_events = zeek_service.get_dns_events(
+            notice_uid=notice_uid,
+            start_time=start_time,
+            end_time=end_time
+        )
+        weird_events = zeek_service.get_weird_events(
+            notice_uid=notice_uid,
+            start_time=start_time,
+            end_time=end_time
+        )
         
         # Get enrichment
         from parsers.unified.enrichers import get_enrichment_service

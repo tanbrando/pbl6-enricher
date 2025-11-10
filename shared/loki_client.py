@@ -96,8 +96,9 @@ class LokiClient:
             # Use query_range endpoint for time range queries
             endpoint = "/loki/api/v1/query_range"
             start_time, end_time = time_range
-            params["start"] = int(start_time.timestamp() * 1e9)  # nanoseconds
-            params["end"] = int(end_time.timestamp() * 1e9)
+            # Expect timestamps to be already in nanoseconds (Unix timestamp * 1e9)
+            params["start"] = int(start_time)
+            params["end"] = int(end_time)
         else:
             # Use instant query endpoint
             endpoint = "/loki/api/v1/query"
@@ -161,6 +162,8 @@ class LokiClient:
         self,
         transaction_id: str,
         source: str = "modsecurity",
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
         time_range_minutes: int = 30
     ) -> str:
         """
@@ -168,8 +171,10 @@ class LokiClient:
         
         Args:
             transaction_id: Transaction/event unique ID
-            job: Log job name (modsecurity, suricata, zeek, ufw)
-            time_range_minutes: Time range to search (±minutes from now)
+            source: Log source name (modsecurity, suricata, zeek, ufw)
+            start_time: Start timestamp from Grafana (Unix timestamp in ns or ISO format)
+            end_time: End timestamp from Grafana (Unix timestamp in ns or ISO format)
+            time_range_minutes: Fallback time range if start/end not provided (±minutes from now)
         
         Returns:
             Raw log content as string
@@ -182,24 +187,32 @@ class LokiClient:
         # Build query
         query = f'{{source="{source}"}} |= `{transaction_id}`'
 
-        # Time range: last N minutes (keep timezone aware for correct timestamp)
-        end_time = datetime.now(timezone.utc)
-        start_time = end_time - timedelta(minutes=time_range_minutes)
-        
-        logger.debug(f"Time range: {start_time} to {end_time}")
+        # Determine time range
+        if start_time and end_time:
+            # Use provided time range from Grafana (already in nanoseconds)
+            start_ns = int(start_time) if isinstance(start_time, (int, float)) else int(self._parse_timestamp(start_time).timestamp() * 1e9)
+            end_ns = int(end_time) if isinstance(end_time, (int, float)) else int(self._parse_timestamp(end_time).timestamp() * 1e9)
+            logger.debug(f"Using provided time range: {start_ns} to {end_ns} (nanoseconds)")
+        else:
+            # Fallback: use default time range (last N minutes)
+            end_dt = datetime.now(timezone.utc)
+            start_dt = end_dt - timedelta(minutes=time_range_minutes)
+            start_ns = int(start_dt.timestamp() * 1e9)
+            end_ns = int(end_dt.timestamp() * 1e9)
+            logger.debug(f"Using fallback time range: {start_dt} to {end_dt} ({start_ns} to {end_ns} ns)")
         
         # Execute query
         results = self.query(
             query=query,
             limit=1,
-            time_range=(start_time, end_time)
+            time_range=(start_ns, end_ns)
         )
         
         if not results:
             logger.warning(f"Transaction {transaction_id} not found")
             raise TransactionNotFoundError(
                 transaction_id,
-                details={"source": source, "time_range_minutes": time_range_minutes}
+                details={"source": source, "time_range": f"{start_dt} to {end_dt}"}
             )
         
         # Extract log content
@@ -237,10 +250,14 @@ class LokiClient:
         """
         logger.debug(f"Range query: {start_time} to {end_time}")
         
+        # Convert datetime to nanoseconds
+        start_ns = int(start_time.timestamp() * 1e9)
+        end_ns = int(end_time.timestamp() * 1e9)
+        
         return self.query(
             query=query,
             limit=limit,
-            time_range=(start_time, end_time)
+            time_range=(start_ns, end_ns)
         )
     
     def count_logs(
@@ -258,7 +275,7 @@ class LokiClient:
         Returns:
             Count of matching logs
         """
-        end_time = datetime.now(timezone.utc).replace(tzinfo=None)
+        end_time = datetime.now(timezone.utc)
         start_time = end_time - timedelta(hours=time_range_hours)
         
         results = self.query_range(query, start_time, end_time, limit=10000)
@@ -267,6 +284,46 @@ class LokiClient:
         logger.info(f"Count query returned: {total}")
         
         return total
+    
+    def _parse_timestamp(self, timestamp: str) -> datetime:
+        """
+        Parse timestamp from Grafana (can be Unix nanoseconds or ISO format)
+        
+        Args:
+            timestamp: Timestamp string from Grafana
+        
+        Returns:
+            datetime object (timezone aware)
+        """
+        try:
+            # Try parsing as Unix timestamp in nanoseconds (Grafana default)
+            ts_ns = int(timestamp)
+            ts_seconds = ts_ns / 1e9
+            return datetime.fromtimestamp(ts_seconds, tz=timezone.utc)
+        except (ValueError, TypeError):
+            pass
+        
+        try:
+            # Try parsing as Unix timestamp in milliseconds
+            ts_ms = int(timestamp)
+            if ts_ms > 1e12:  # Likely milliseconds
+                ts_seconds = ts_ms / 1e3
+                return datetime.fromtimestamp(ts_seconds, tz=timezone.utc)
+        except (ValueError, TypeError):
+            pass
+        
+        try:
+            # Try parsing as ISO format
+            dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt
+        except (ValueError, AttributeError):
+            pass
+        
+        # Fallback: return current time
+        logger.warning(f"Could not parse timestamp: {timestamp}, using current time")
+        return datetime.now(timezone.utc)
 
 
 # Singleton instance

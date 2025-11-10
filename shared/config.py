@@ -114,6 +114,22 @@ class Settings(BaseSettings):
         description="Azure OpenAI deployment name"
     )
     
+    # ===== Google Gemini Configuration =====
+    gemini_enabled: bool = Field(
+        default=True,
+        description="Enable Google Gemini AI analysis (FREE tier)"
+    )
+    gemini_api_key: Optional[str] = Field(
+        default=None,
+        description="Google Gemini API key from AI Studio"
+    )
+    
+    # AI Provider Selection
+    ai_provider: str = Field(
+        default="gemini",
+        description="AI provider to use (gemini/azure)"
+    )
+    
     # AI Settings
     ai_temperature: float = Field(
         default=0.3,
