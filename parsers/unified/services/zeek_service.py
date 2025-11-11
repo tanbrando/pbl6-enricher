@@ -190,7 +190,9 @@ class ZeekService:
     
     def get_ssl_events(
         self,
-        notice_uid: str
+        notice_uid: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         Get SSL/TLS events related to notice
@@ -204,7 +206,7 @@ class ZeekService:
         self.logger.info(f"Getting SSL events for notice UID: {notice_uid}")
         
         # Get notice IPs
-        notice_entries = self._query_logs_by_uid(notice_uid, log_type="notice")
+        notice_entries = self._query_logs_by_uid(notice_uid, log_type="notice", start_time=start_time, end_time=end_time)
         summary = self.parser.parse_notice_summary(notice_entries)
         
         src = summary.get("src")
@@ -215,6 +217,8 @@ class ZeekService:
             src_ip=src,
             dest_ip=dst,
             log_type="ssl",
+            start_time=start_time,
+            end_time=end_time,
             time_range_minutes=30
         )
         
@@ -225,7 +229,9 @@ class ZeekService:
     
     def get_dns_events(
         self,
-        notice_uid: str
+        notice_uid: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         Get DNS events related to notice
@@ -239,7 +245,7 @@ class ZeekService:
         self.logger.info(f"Getting DNS events for notice UID: {notice_uid}")
         
         # Get notice
-        notice_entries = self._query_logs_by_uid(notice_uid, log_type="notice")
+        notice_entries = self._query_logs_by_uid(notice_uid, log_type="notice", start_time=start_time, end_time=end_time)
         summary = self.parser.parse_notice_summary(notice_entries)
         
         src = summary.get("src")
@@ -250,6 +256,8 @@ class ZeekService:
             src_ip=src,
             dest_ip=None,
             log_type="dns",
+            start_time=start_time,
+            end_time=end_time,
             time_range_minutes=30
         )
         
@@ -269,7 +277,9 @@ class ZeekService:
     
     def get_weird_events(
         self,
-        notice_uid: str
+        notice_uid: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         Get weird events (protocol anomalies)
@@ -283,7 +293,7 @@ class ZeekService:
         self.logger.info(f"Getting weird events for notice UID: {notice_uid}")
         
         # Get notice IPs
-        notice_entries = self._query_logs_by_uid(notice_uid, log_type="notice")
+        notice_entries = self._query_logs_by_uid(notice_uid, log_type="notice", start_time=start_time, end_time=end_time)
         summary = self.parser.parse_notice_summary(notice_entries)
         
         src = summary.get("src")
@@ -294,6 +304,8 @@ class ZeekService:
             src_ip=src,
             dest_ip=dst,
             log_type="weird",
+            start_time=start_time,
+            end_time=end_time,
             time_range_minutes=30
         )
         
@@ -304,7 +316,9 @@ class ZeekService:
     
     def get_taxonomy(
         self,
-        notice_uid: str
+        notice_uid: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Get notice taxonomy/categorization
@@ -318,7 +332,7 @@ class ZeekService:
         self.logger.info(f"Getting taxonomy for notice UID: {notice_uid}")
         
         # Get all related notices
-        notices = self.get_related_notices(notice_uid)
+        notices = self.get_related_notices(notice_uid, start_time=start_time, end_time=end_time)
         
         # Categorize
         taxonomy = self.parser.categorize_notices(notices)
@@ -327,7 +341,9 @@ class ZeekService:
     
     def correlate_with_suricata(
         self,
-        notice_uid: str
+        notice_uid: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Correlate Zeek notice with Suricata alerts
@@ -341,7 +357,7 @@ class ZeekService:
         self.logger.info(f"Correlating with Suricata for notice UID: {notice_uid}")
         
         # Get notice
-        notice_entries = self._query_logs_by_uid(notice_uid, log_type="notice")
+        notice_entries = self._query_logs_by_uid(notice_uid, log_type="notice", start_time=start_time, end_time=end_time)
         summary = self.parser.parse_notice_summary(notice_entries)
         
         src = summary.get("src")
@@ -355,13 +371,17 @@ class ZeekService:
                 |= `"dest_ip":"{dst}"`
             '''
 
-            end_time = datetime.now(timezone.utc)
-            start_time = end_time - timedelta(minutes=30)
+            if start_time and end_time:
+                start_dt = self.loki_client._parse_timestamp(start_time)
+                end_dt = self.loki_client._parse_timestamp(end_time)
+            else:
+                end_dt = datetime.now(timezone.utc)
+                start_dt = end_dt - timedelta(minutes=30)
             
             results = self.loki_client.query_range(
                 query=suricata_query,
-                start_time=start_time,
-                end_time=end_time,
+                start_time=start_dt,
+                end_time=end_dt,
                 limit=100
             )
             
@@ -455,9 +475,9 @@ class ZeekService:
         # Build query
         filters = []
         if src_ip:
-            filters.append(f'|= `{src_ip}`')
+            filters.append(f'|= `"id.orig_h":"{src_ip}"`')
         if dest_ip:
-            filters.append(f'|= `{dest_ip}`')
+            filters.append(f'|= `"id.resp_h":"{dest_ip}"`')
         
         query = f'{{source="zeek", log_type="{log_type}"}} ' + ' '.join(filters)
         

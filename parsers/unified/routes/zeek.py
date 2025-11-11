@@ -412,7 +412,6 @@ def ai_analyze_notice(notice_uid: str):
         )
         
         # Get enrichment
-        from parsers.unified.enrichers import get_enrichment_service
         enrichment_service = get_enrichment_service()
         
         src_ip = summary.get("src")

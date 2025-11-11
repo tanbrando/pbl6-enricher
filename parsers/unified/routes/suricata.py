@@ -487,7 +487,6 @@ def ai_analyze_flow(flow_id: str):
         )
         
         # Get enrichment
-        from enrichers import get_enrichment_service
         enrichment_service = get_enrichment_service()
         
         src_ip = summary.get("src_ip")

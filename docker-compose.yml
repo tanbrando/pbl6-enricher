@@ -3,9 +3,6 @@
 # Author: tanbrando
 # Date: 2025-01-08 03:08:52 UTC
 # ============================================================
-
-version: '3.8'
-
 networks:
   # Kết nối vào network HIỆN CÓ (không tạo mới)
   monitoring:
@@ -14,8 +11,6 @@ networks:
 
 volumes:
   log-parser-logs:
-    driver: local
-  geoip-data:
     driver: local
 
 services:
@@ -47,12 +42,8 @@ services:
       - LOG_FORMAT=json
       - LOG_FILE=/app/logs/app.log
       
-      # Azure OpenAI
-      - AZURE_OPENAI_ENABLED=${AZURE_OPENAI_ENABLED:-false}
-      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
-      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
-      - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2024-02-01}
-      - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt4-turbo}
+      # AI Provider
+      - AI_PROVIDER=${AI_PROVIDER:-gemini}
       
       # AI Settings
       - AI_TEMPERATURE=${AI_TEMPERATURE:-0.3}
@@ -65,12 +56,21 @@ services:
       - VIRUSTOTAL_API_KEY=${VIRUSTOTAL_API_KEY}
       
       # GeoIP
-      - GEOIP_ENABLED=${GEOIP_ENABLED:-false}
-      - GEOIP_DB_PATH=/app/data/geoip/GeoLite2-City.mmdb
+      - GEOIP_ENABLED=${GEOIP_ENABLED:-true}
+      - GEOIP_CITY_DB=/app/parsers/data/geoip/GeoLite2-City.mmdb
+      - GEOIP_ASN_DB=/app/parsers/data/geoip/GeoLite2-ASN.mmdb
+      
+      # Attack Database
+      - ATTACK_DB_ENABLED=${ATTACK_DB_ENABLED:-true}
+      - ATTACK_DB_PATH=/app/parsers/data/attack_intel/
+      
+      # Google Gemini AI (FREE)
+      - GEMINI_ENABLED=${GEMINI_ENABLED:-true}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
     
     volumes:
       - log-parser-logs:/app/logs
-      - geoip-data:/app/data/geoip:ro
+      - ./parsers/data:/app/parsers/data:ro  # Mount data folder (GeoIP, Attack Intel)
     
     networks:
       - monitoring

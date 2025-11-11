@@ -441,7 +441,6 @@ def ai_analyze_transaction(transaction_id: str):
         )
         
         # Get enrichment
-        from enrichers import get_enrichment_service
         enrichment_service = get_enrichment_service()
         
         src_ip = summary.get("src_ip")
