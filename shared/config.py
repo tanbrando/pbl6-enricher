@@ -123,6 +123,18 @@ class Settings(BaseSettings):
         default=None,
         description="Google Gemini API key from AI Studio"
     )
+    gemini_use_apim: bool = Field(
+        default=False,
+        description="Use Azure APIM as proxy to bypass datacenter IP blocking"
+    )
+    gemini_apim_endpoint: Optional[str] = Field(
+        default=None,
+        description="Azure APIM endpoint URL (e.g., https://your-apim.azure-api.net/gemini)"
+    )
+    gemini_apim_subscription_key: Optional[str] = Field(
+        default=None,
+        description="Azure APIM subscription key (Ocp-Apim-Subscription-Key header)"
+    )
     
     # AI Provider Selection
     ai_provider: str = Field(

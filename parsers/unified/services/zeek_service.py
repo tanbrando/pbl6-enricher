@@ -505,6 +505,48 @@ class ZeekService:
         
         return log_entries
     
+    def _query_notice_logs_by_ip(
+        self,
+        src_ip: str,
+        dest_ip: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None
+    ) -> List[str]:
+        """Query notice logs by IP addresses"""
+        
+        # Build query
+        filters = []
+        if src_ip:
+            filters.append(f'|= `"src":"{src_ip}"`')
+        if dest_ip:
+            filters.append(f'|= `"dst":"{dest_ip}"`')
+        
+        query = f'{{source="zeek", log_type="notice"}} ' + ' '.join(filters)
+        
+        # Use provided time range or fallback to last 24 hours
+        if start_time and end_time:
+            start_dt = self.loki_client._parse_timestamp(start_time)
+            end_dt = self.loki_client._parse_timestamp(end_time)
+        else:
+            end_dt = datetime.now(timezone.utc)
+            start_dt = end_dt - timedelta(hours=24)
+        
+        results = self.loki_client.query_range(
+            query=query,
+            start_time=start_dt,
+            end_time=end_dt,
+            limit=500
+        )
+        
+        # Extract log lines
+        log_entries = []
+        for result in results:
+            values = result.get("values", [])
+            for timestamp, log_line in values:
+                log_entries.append(log_line)
+        
+        return log_entries
+    
     def _query_related_connections(
         self,
         src_ip: str,
@@ -544,3 +586,136 @@ class ZeekService:
                 log_entries.append(log_line)
         
         return log_entries
+    
+    def get_notice_summary_by_ips(
+        self,
+        src_ip: str,
+        dst_ip: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Get notice summary by source and destination IPs (for notices without UID)
+        
+        Args:
+            src_ip: Source IP address
+            dst_ip: Destination IP address
+            start_time: Start timestamp (from Grafana)
+            end_time: End timestamp (from Grafana)
+            note_type: Optional notice type filter (e.g., Scan::Port_Scan)
+        
+        Returns:
+            Notice summary dict
+        """
+        self.logger.info(f"Getting notice for src={src_ip}, dst={dst_ip}")
+        
+        # Query notice logs by IPs
+        log_entries = self._query_notice_logs_by_ip(
+            src_ip=src_ip,
+            dest_ip=dst_ip,
+            start_time=start_time,
+            end_time=end_time,
+        )
+        
+        if not log_entries:
+            raise TransactionNotFoundError(
+                transaction_id=f"{src_ip}:{dst_ip}",
+                source="zeek_notice",
+                details={"src": src_ip, "dst": dst_ip}
+            )
+        
+        # Parse summary
+        summary = self.parser.parse_notice_summary(log_entries)
+        
+        self.logger.info(f"Notice summary: {summary.get('total_notices')} notices")
+        return summary
+    
+    def get_conn_summary_by_ips(
+        self,
+        src_ip: str,
+        dst_ip: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Get connection summary by IPs"""
+        log_entries = self._query_logs_by_ip(src_ip, dst_ip, "conn", start_time, end_time)
+        return self.parser.parse_conn_summary(log_entries)
+    
+    def get_http_events_by_ips(
+        self,
+        src_ip: str,
+        dst_ip: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Get HTTP events by IPs"""
+        log_entries = self._query_logs_by_ip(src_ip, dst_ip, "http", start_time, end_time)
+        return self.parser.parse_http_events(log_entries)
+    
+    def get_ssl_events_by_ips(
+        self,
+        src_ip: str,
+        dst_ip: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Get SSL/TLS events by IPs"""
+        log_entries = self._query_logs_by_ip(src_ip, dst_ip, "ssl", start_time, end_time)
+        return self.parser.parse_ssl_events(log_entries)
+    
+    def get_dns_events_by_ips(
+        self,
+        src_ip: str,
+        dst_ip: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Get DNS events by IPs"""
+        log_entries = self._query_logs_by_ip(src_ip, dst_ip, "dns", start_time, end_time)
+        return self.parser.parse_dns_events(log_entries)
+    
+    def get_weird_events_by_ips(
+        self,
+        src_ip: str,
+        dst_ip: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Get weird events by IPs"""
+        log_entries = self._query_logs_by_ip(src_ip, dst_ip, "weird", start_time, end_time)
+        return self.parser.parse_weird_events(log_entries)
+    
+    def correlate_with_suricata_by_ips(
+        self,
+        src_ip: str,
+        dst_ip: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Correlate with Suricata alerts by IPs"""
+        # Use first notice to get timestamp context
+        notice_summary = self.get_notice_summary_by_ips(src_ip, dst_ip, start_time, end_time)
+        notice_ts = notice_summary.get("timestamp")
+        
+        # Query Suricata for same IPs around same time
+        from services.suricata_service import SuricataService
+        suricata_service = SuricataService()
+        
+        # Build query for Suricata alerts matching src/dst IPs
+        try:
+            alerts = suricata_service.query_alerts_by_ip(src_ip, dst_ip, start_time, end_time)
+            
+            return {
+                "zeek_notice": notice_summary,
+                "suricata_alerts": alerts,
+                "correlation_count": len(alerts),
+                "correlation_type": "ip_based"
+            }
+        except Exception as e:
+            self.logger.warning(f"Suricata correlation failed: {e}")
+            return {
+                "zeek_notice": notice_summary,
+                "suricata_alerts": [],
+                "correlation_count": 0,
+                "error": str(e)
+            }

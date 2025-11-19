@@ -192,6 +192,8 @@ class LokiClient:
             # Use provided time range from Grafana (already in nanoseconds)
             start_ns = int(start_time) if isinstance(start_time, (int, float)) else int(self._parse_timestamp(start_time).timestamp() * 1e9)
             end_ns = int(end_time) if isinstance(end_time, (int, float)) else int(self._parse_timestamp(end_time).timestamp() * 1e9)
+            start_dt = datetime.fromtimestamp(start_ns / 1e9, tz=timezone.utc)
+            end_dt = datetime.fromtimestamp(end_ns / 1e9, tz=timezone.utc)
             logger.debug(f"Using provided time range: {start_ns} to {end_ns} (nanoseconds)")
         else:
             # Fallback: use default time range (last N minutes)

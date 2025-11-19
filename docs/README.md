@@ -32,6 +32,18 @@
 
 ---
 
+### 3. [DOCKER.md](DOCKER.md) 🐳
+**Docker deployment guide**
+- Why data folder is missing in image
+- Build & run with Docker
+- Volume mounts explained
+- Troubleshooting
+
+**Time:** 15 minutes  
+**Level:** Intermediate
+
+---
+
 ## 🚀 Getting Started
 
 **New users:**

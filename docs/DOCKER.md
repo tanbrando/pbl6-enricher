@@ -45,8 +45,15 @@ nano .env
 
 **Tối thiểu cần:**
 ```bash
+ABUSEIPDB_API_KEY=
+VIRUSTOTAL_API_KEY=
+
 GEMINI_ENABLED=true
 GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+GEMINI_USE_APIM=true
+GEMINI_APIM_ENDPOINT=https://your-api-name.azure-api.net/gemini
+GEMINI_APIM_SUBSCRIPTION_KEY=
 
 # Loki connection (nếu dùng)
 LOKI_ENABLED=true

@@ -1,7 +1,8 @@
 """
 Google Gemini Analyzer
 Gemini Flash Free integration via Google AI Studio
-Using google-genai library (NEW SDK)
+Uses OpenAI SDK with Gemini's OpenAI-compatible API endpoint
+Supports Azure APIM proxy for VM deployments (bypasses datacenter IP blocking)
 """
 
 from typing import Dict, List, Any, Optional
@@ -10,16 +11,21 @@ import json
 from shared.logger import get_logger
 from shared.config import get_settings
 from ai.base_analyzer import BaseAIAnalyzer
+from ai.gemini_client import GeminiClient
 
 logger = get_logger(__name__)
 
 
 class GeminiAnalyzer(BaseAIAnalyzer):
     """
-    Google Gemini Flash analyzer
+    Google Gemini Flash analyzer using OpenAI SDK
+    
+    Uses Gemini's OpenAI-compatible API endpoint:
+    - Direct mode: https://generativelanguage.googleapis.com/v1beta/openai/
+    - APIM mode: Routes through Azure API Management to bypass datacenter IP blocking
     
     Requires:
-    - google-generativeai library
+    - openai library (already installed for Azure OpenAI)
     - Google AI Studio API key in .env
     
     Free tier limits:
@@ -31,9 +37,6 @@ class GeminiAnalyzer(BaseAIAnalyzer):
     def __init__(self):
         super().__init__("Google Gemini")
         self.settings = get_settings()
-        
-        # Gemini settings
-        self.api_key = self.settings.gemini_api_key
         
         # AI settings
         self.temperature = self.settings.ai_temperature
@@ -51,35 +54,26 @@ class GeminiAnalyzer(BaseAIAnalyzer):
             self.logger.info("ℹ️  Google Gemini disabled in configuration")
             return
         
-        if not self.api_key:
-            self.logger.warning("⚠️  Google Gemini API key not found. Set in .env:")
-            self.logger.warning("   GEMINI_API_KEY=your-api-key-from-ai-studio")
-            self.logger.warning("   Get free API key: https://aistudio.google.com/apikey")
-            return
-        
         try:
-            from google import genai
-            
-            # Create Gemini client with new SDK
-            self.client = genai.Client(api_key=self.api_key)
+            # Use new unified client (supports both direct and APIM)
+            self.client = GeminiClient()
             
             # Try models in order of preference
             model_names = [
-                'gemini-2.5-flash',      # Latest stable (Nov 2025)
-                'gemini-2.0-flash-exp',  # Experimental 2.0
-                'gemini-2.0-flash',      # Stable 2.0
-                'gemini-flash-latest',   # Latest flash alias
+                'gemini-2.5-flash',     
+                'gemini-2.0-flash',      
             ]
             
             for model_name in model_names:
                 try:
-                    # Test with simple query to verify it works
-                    test_response = self.client.models.generate_content(
+                    # Test with simple query using OpenAI SDK
+                    test_response = self.client.client.chat.completions.create(
                         model=model_name,
-                        contents="Hi"
+                        messages=[{"role": "user", "content": "Hi"}],
+                        max_tokens=10
                     )
                     
-                    if test_response and test_response.text:
+                    if test_response and test_response.choices and test_response.choices[0].message.content:
                         self.model_name = model_name
                         self.logger.info(f"   ✅ Model {model_name} is available")
                         break
@@ -93,6 +87,14 @@ class GeminiAnalyzer(BaseAIAnalyzer):
             self.enabled = True
             self.logger.info("=" * 60)
             self.logger.info("✅ Google Gemini analyzer initialized")
+            
+            # Log mode
+            if self.settings.gemini_use_apim:
+                self.logger.info(f"   Mode: APIM Proxy (Azure VM compatible)")
+                self.logger.info(f"   Endpoint: {self.settings.gemini_apim_endpoint}")
+            else:
+                self.logger.info(f"   Mode: Direct API")
+            
             self.logger.info(f"   Model: {self.model_name} (FREE)")
             self.logger.info(f"   Temperature: {self.temperature}")
             self.logger.info(f"   Max Tokens: {self.max_tokens}")
@@ -100,8 +102,8 @@ class GeminiAnalyzer(BaseAIAnalyzer):
             self.logger.info("=" * 60)
             
         except ImportError:
-            self.logger.warning("⚠️  google-genai library not installed.")
-            self.logger.warning("   Run: pip install google-genai")
+            self.logger.warning("⚠️  openai library not installed.")
+            self.logger.warning("   Run: pip install openai")
         except Exception as e:
             self.logger.error(f"Failed to initialize Google Gemini: {e}")
     
@@ -166,39 +168,31 @@ Provide analysis in JSON format with the following structure:
 Be specific, technical, and actionable. Focus on security context relevant to incident response."""
 
         try:
-            # Generate response with new SDK
-            response = self.client.models.generate_content(
+            # Generate response with OpenAI SDK (Gemini chat completions)
+            response = self.client.client.chat.completions.create(
                 model=self.model_name,
-                contents=prompt,
-                config={
-                    'temperature': self.temperature,
-                    'max_output_tokens': 8192,  # Increased even more for complex analysis
-                    'response_mime_type': 'application/json',  # Request JSON directly
-                }
+                messages=[{"role": "user", "content": prompt}],
+                temperature=self.temperature,
+                max_tokens=8192
             )
             
             # Debug: Log response info
             self.logger.debug(f"Response received: {type(response)}")
-            if hasattr(response, 'candidates'):
-                self.logger.debug(f"Candidates: {len(response.candidates) if response.candidates else 0}")
             
-            # Check if response has text
-            if not response:
-                raise Exception("No response object from Gemini API")
+            # Extract response text from OpenAI format
+            if not response or not response.choices:
+                raise Exception("No response from Gemini API")
             
-            if not hasattr(response, 'text') or not response.text:
-                # Try to get text from candidates
+            response_text = response.choices[0].message.content
+            
+            if not response_text:
                 error_msg = "Empty response from Gemini API"
-                if hasattr(response, 'candidates') and response.candidates:
-                    candidate = response.candidates[0]
-                    if hasattr(candidate, 'finish_reason'):
-                        error_msg += f" - Finish reason: {candidate.finish_reason}"
-                    if hasattr(candidate, 'safety_ratings'):
-                        error_msg += f" - Safety ratings: {candidate.safety_ratings}"
+                if hasattr(response.choices[0], 'finish_reason'):
+                    error_msg += f" - Finish reason: {response.choices[0].finish_reason}"
                 raise Exception(error_msg)
             
             # Clean response - remove markdown code blocks if present
-            response_text = response.text.strip()
+            response_text = response_text.strip()
             
             # Log raw response for debugging
             self.logger.debug(f"Raw response length: {len(response_text)}")
@@ -237,7 +231,7 @@ Be specific, technical, and actionable. Focus on security context relevant to in
             
         except json.JSONDecodeError as e:
             self.logger.error(f"Failed to parse Gemini JSON response: {e}")
-            raw_text = response.text if 'response' in locals() and hasattr(response, 'text') else "No response"
+            raw_text = response_text if 'response_text' in locals() else "No response"
             
             # Try to extract partial data
             partial_data = {
@@ -268,8 +262,8 @@ Be specific, technical, and actionable. Focus on security context relevant to in
                 "status": "failed"
             }
             if 'response' in locals() and response:
-                if hasattr(response, 'candidates'):
-                    debug_info["candidates_count"] = len(response.candidates) if response.candidates else 0
+                if hasattr(response, 'choices'):
+                    debug_info["choices_count"] = len(response.choices) if response.choices else 0
             return debug_info
     
     def generate_narrative(
@@ -310,19 +304,17 @@ Create a detailed narrative that:
 Write in professional SOC analyst style, suitable for incident reports."""
 
         try:
-            response = self.client.models.generate_content(
+            response = self.client.client.chat.completions.create(
                 model=self.model_name,
-                contents=prompt,
-                config={
-                    'temperature': self.temperature,
-                    'max_output_tokens': 4096,
-                }
+                messages=[{"role": "user", "content": prompt}],
+                temperature=self.temperature,
+                max_tokens=4096
             )
             
-            if not response or not response.text:
+            if not response or not response.choices or not response.choices[0].message.content:
                 return "Failed to generate narrative: Empty response from Gemini"
             
-            return response.text
+            return response.choices[0].message.content
             
         except Exception as e:
             self.logger.error(f"Gemini narrative generation failed: {e}")
@@ -370,17 +362,14 @@ Provide assessment in JSON format:
 }}"""
 
         try:
-            response = self.client.models.generate_content(
+            response = self.client.client.chat.completions.create(
                 model=self.model_name,
-                contents=prompt,
-                config={
-                    'temperature': self.temperature,
-                    'max_output_tokens': 1024,
-                    'response_mime_type': 'application/json',
-                }
+                messages=[{"role": "user", "content": prompt}],
+                temperature=self.temperature,
+                max_tokens=1024
             )
             
-            if not response or not response.text:
+            if not response or not response.choices or not response.choices[0].message.content:
                 return {
                     "threat_level": "Unknown",
                     "confidence": 0,
@@ -388,7 +377,7 @@ Provide assessment in JSON format:
                 }
             
             # Clean and parse JSON
-            response_text = response.text.strip()
+            response_text = response.choices[0].message.content.strip()
             if response_text.startswith("```json"):
                 response_text = response_text[7:]
             if response_text.startswith("```"):
@@ -445,21 +434,18 @@ Provide recommendations in JSON format:
 Be specific and actionable. Focus on practical steps for incident response and prevention."""
 
         try:
-            response = self.client.models.generate_content(
+            response = self.client.client.chat.completions.create(
                 model=self.model_name,
-                contents=prompt,
-                config={
-                    'temperature': self.temperature,
-                    'max_output_tokens': 1024,
-                    'response_mime_type': 'application/json',
-                }
+                messages=[{"role": "user", "content": prompt}],
+                temperature=self.temperature,
+                max_tokens=1024
             )
             
-            if not response or not response.text:
+            if not response or not response.choices or not response.choices[0].message.content:
                 return ["Failed to generate recommendations: Empty response from Gemini"]
             
             # Clean and parse JSON
-            response_text = response.text.strip()
+            response_text = response.choices[0].message.content.strip()
             if response_text.startswith("```json"):
                 response_text = response_text[7:]
             if response_text.startswith("```"):

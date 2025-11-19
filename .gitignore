@@ -37,6 +37,7 @@ parsers/data/geoip/*.mmdb
 .pytest_cache/
 .coverage
 htmlcov/
+tests/
 
 # Temporary
 tmp/

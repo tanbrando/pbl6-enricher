@@ -37,8 +37,6 @@ class AIService:
         
         if ai_provider == "gemini":
             self._initialize_gemini()
-        elif ai_provider == "azure":
-            self._initialize_azure()
         else:
             self.logger.warning(f"⚠️  Unknown AI provider: {ai_provider}. Defaulting to Gemini.")
             self._initialize_gemini()
@@ -56,20 +54,6 @@ class AIService:
         except ImportError as e:
             self.logger.error(f"Failed to import GeminiAnalyzer: {e}")
             self.logger.warning("   Install: pip install google-generativeai")
-    
-    def _initialize_azure(self):
-        """Initialize Azure OpenAI analyzer"""
-        try:
-            from ai.ai_analyzer import AzureOpenAIAnalyzer
-            self.analyzer = AzureOpenAIAnalyzer()
-            
-            if self.analyzer.is_enabled():
-                self.logger.info("✅ AI Service initialized (Azure OpenAI)")
-            else:
-                self.logger.warning("⚠️  AI Service disabled (Azure OpenAI not configured)")
-        except ImportError as e:
-            self.logger.error(f"Failed to import AzureOpenAIAnalyzer: {e}")
-            self.logger.warning("   Install: pip install openai>=1.0.0")
     
     def analyze(
         self,
