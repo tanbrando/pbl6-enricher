@@ -312,7 +312,7 @@ class UFWService:
         """Query UFW logs for specific port (JSON format)"""
         
         # Query for JSON logs with dest_port field
-        query = f'{{source="ufw"}} |= `"dest_port": "{dest_port}"`'
+        query = f'{{source="ufw"}} |= "action": "UFW BLOCK" |= `"dest_port": "{dest_port}"`'
 
         end_time = datetime.now(timezone.utc)
         start_time = end_time - timedelta(hours=time_range_hours)

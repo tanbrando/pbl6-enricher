@@ -67,6 +67,10 @@ services:
       # Google Gemini AI (FREE)
       - GEMINI_ENABLED=${GEMINI_ENABLED:-true}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+
+      - GEMINI_USE_APIM=${GEMINI_USE_APIM:-false}
+      - GEMINI_APIM_ENDPOINT=${GEMINI_APIM_ENDPOINT}
+      - GEMINI_APIM_SUBSCRIPTION_KEY=${GEMINI_APIM_SUBSCRIPTION_KEY}
     
     volumes:
       - log-parser-logs:/app/logs
