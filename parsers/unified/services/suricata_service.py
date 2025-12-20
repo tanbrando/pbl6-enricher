@@ -357,6 +357,50 @@ class SuricataService:
                 "ufw_blocks_found": 0,
                 "error": str(e)
             }
+        
+    def query_alerts_by_ip(
+        self,
+        src_ip: Optional[str],
+        dest_ip: Optional[str],
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None
+    ) -> List[str]:
+        """Query alerts by IP addresses"""
+        # Build query
+        filters = []
+        if src_ip:
+            filters.append(f'|= `"src_ip":"{src_ip}"`')
+        if dest_ip:
+            filters.append(f'|= `"dest_ip":"{dest_ip}"`')
+        
+        query = '{source="suricata", event_type="alert"} ' + ' '.join(filters)
+        
+        # Use provided time range or fallback to last 30 minutes
+        if start_time and end_time:
+            # Parse timestamps from Grafana using loki_client's parser
+            start_dt = self.loki_client._parse_timestamp(start_time)
+            end_dt = self.loki_client._parse_timestamp(end_time)
+        else:
+            end_dt = datetime.now(timezone.utc)
+            start_dt = end_dt - timedelta(minutes=30)
+        
+        results = self.loki_client.query_range(
+            query=query,
+            start_time=start_dt,
+            end_time=end_dt,
+            limit=1000
+        )
+
+        # Extract log lines
+        log_entries = []
+        for result in results:
+            values = result.get("values", [])
+            for timestamp, log_line in values:
+                log_entries.append(log_line)
+
+        alerts = self.parser.parse_alerts(log_entries)
+        
+        return alerts
     
     # ===== Private Helper Methods =====
     

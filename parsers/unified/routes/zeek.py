@@ -688,7 +688,6 @@ def query_notice_by_ips():
         dst_ip = request.args.get('dst')
         start_time = request.args.get('start')
         end_time = request.args.get('end')
-        note_type = request.args.get('note')
         
         if not src_ip :
             raise ValidationError("'src' parameter is required")
@@ -716,8 +715,8 @@ def query_suricata_correlation_by_ips():
         start_time = request.args.get('start')
         end_time = request.args.get('end')
         
-        if not src_ip or not dst_ip:
-            raise ValidationError("Both 'src' and 'dst' parameters are required")
+        if not src_ip:
+            raise ValidationError("'src' parameter is required")
         
         correlation = zeek_service.correlate_with_suricata_by_ips(src_ip, dst_ip, start_time, end_time)
         return jsonify(correlation), 200

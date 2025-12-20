@@ -68,21 +68,27 @@ class SuricataParser:
         if not events:
             raise ParseError("No valid events found in log")
         
-        # Get first event for basic info
+        # Prefer alert event as the connection source
+        # so src_ip/dest_ip reflect the alert direction
         first_event = events[0]
+        alert_base_event = next(
+            (e for e in events if e.get("event_type") == "alert"),
+            None
+        )
+        base_event = alert_base_event or first_event
         
         # Count event types
         event_types = Counter(e.get("event_type") for e in events)
         
-        # Extract connection info from first event
+        # Extract connection info from base event (alert if available)
         summary = {
-            "flow_id": safe_get(first_event, "flow_id"),
-            "timestamp": safe_get(first_event, "timestamp"),
-            "src_ip": safe_get(first_event, "src_ip"),
-            "src_port": safe_get(first_event, "src_port"),
-            "dest_ip": safe_get(first_event, "dest_ip"),
-            "dest_port": safe_get(first_event, "dest_port"),
-            "proto": safe_get(first_event, "proto"),
+            "flow_id": safe_get(base_event, "flow_id"),
+            "timestamp": safe_get(base_event, "timestamp"),
+            "src_ip": safe_get(base_event, "src_ip"),
+            "src_port": safe_get(base_event, "src_port"),
+            "dest_ip": safe_get(base_event, "dest_ip"),
+            "dest_port": safe_get(base_event, "dest_port"),
+            "proto": safe_get(base_event, "proto"),
             "total_events": len(events),
             "event_breakdown": dict(event_types),
             "total_alerts": event_types.get("alert", 0),

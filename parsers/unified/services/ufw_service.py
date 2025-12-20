@@ -54,7 +54,7 @@ class UFWService:
         self,
         dest_port: int,
         time_range_hours: int = 24,
-        limit: int = 10
+        limit: int = 5
     ) -> List[Dict[str, Any]]:
         """Get top attacking sources (with zone info)"""
         self.logger.info(f"Getting top sources for port {dest_port}")

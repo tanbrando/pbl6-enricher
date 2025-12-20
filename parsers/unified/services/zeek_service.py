@@ -706,7 +706,6 @@ class ZeekService:
             alerts = suricata_service.query_alerts_by_ip(src_ip, dst_ip, start_time, end_time)
             
             return {
-                "zeek_notice": notice_summary,
                 "suricata_alerts": alerts,
                 "correlation_count": len(alerts),
                 "correlation_type": "ip_based"
